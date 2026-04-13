@@ -1,34 +1,99 @@
 import pandas as pd
+import numpy as np
 import src.path_config as cfg
+from src.search_space import get_mlc, get_slc, get_kernels_smo
+
 
 class PipelineTranslator:
-    """
-    Classe responsável por traduzir um CSV em strings 
-    formatadas que serão usadas no meka (java)
-    """
-    
-    def __init__(self, param_types_json: dict = None):
-        if param_types_json is not None:
-            self.param_types = param_types_json # Usado para os testes isolados
-        else:
-            self.param_types = cfg.load_hyperparameters_json()
+    def __init__(self, n_features: int, n_labels: int, param_types_json: dict = None):
+        self.n_features = n_features
+        self.n_labels = n_labels
+        
+        # Carrega os tipos básicos (bool, float, int) do seu JSON original
+        self.param_types = param_types_json if param_types_json else cfg.load_hyperparameters_json()
+        
+        # Gera os espaços de busca REAIS baseados no dataset atual
+        self.mlc_spaces = get_mlc(n_features, n_labels)
+        self.slc_spaces = get_slc(n_features, n_labels)
+        self.kernel_spaces = get_kernels_smo()
 
 
     def translate_row(self, csv_row: pd.Series) -> tuple:
-        """
-        Extrai os algoritmos ativos naquela linha (pipeline)
-        e seus hyperparams, retornando as strings/dicts formatados.
-        """
         active_algos = self._get_active_algorithms(csv_row)
         fp_algo, meka_algo, weka_algo = self._categorize_algorithms(active_algos)
         fp_params, meka_params, weka_params = self._extract_params(active_algos, csv_row)
 
-        fp_command = self._build_fp_string(fp_algo, fp_params)
-        meka_command = self._build_java_string(meka_algo, meka_params)
-        weka_command = self._build_java_string(weka_algo, weka_params)
+        # Mapeia os índices para valores REAIS usando o dicts.py
+        meka_params_final = self._apply_search_space(meka_algo, meka_params, self.mlc_spaces)
+        weka_params_final = self._apply_search_space(weka_algo, weka_params, self.slc_spaces)
 
-        return fp_command, meka_command, weka_command
+        # PRINT DE DEBUG
+        print(f"[DEBUG TRANSLATOR] Algo Extraído -> FP: {fp_algo}")
+        print(f"[DEBUG TRANSLATOR] Params Extraídos -> FP: {fp_params}")
+
+        print(f"\n[DEBUG TRANSLATOR] Algo Extraído -> MEKA: {meka_algo}")
+        print(f"[DEBUG TRANSLATOR] Params Extraídos -> MEKA: {meka_params_final}")
+
+        print(f"\n[DEBUG TRANSLATOR] Algo Extraído -> WEKA: {weka_algo}")
+        print(f"[DEBUG TRANSLATOR] Params Extraídos -> WEKA: {weka_params_final}")
+
+        # FP continua como string pois é executado via eval() no Python geralmente
+        fp_command = self._build_fp_string(fp_algo, fp_params)
+
+        # Retornamos os objetos estruturados para o Executor
+        return fp_command, meka_algo, meka_params_final, weka_algo, weka_params_final
     
+
+    def _apply_search_space(self, algo: str, params: dict, space_dict: dict) -> dict:
+        if not algo or algo not in space_dict:
+            return params
+
+        config = space_dict[algo]
+        mapped = {}
+
+        # 1. Mapeamento Direto
+        for flag, val in params.items():
+            clean_flag = f"-{flag}" if not flag.startswith("-") else flag
+            
+            if clean_flag in config:
+                space = config[clean_flag]
+                try:
+                    idx = int(float(val))
+                    idx = idx % len(space) 
+                    
+                    real_val = space[idx]
+                    # Converte np.bool_ para bool nativo para facilitar a vida do Executor
+                    if isinstance(real_val, (bool, np.bool_)):
+                        mapped[clean_flag] = bool(real_val)
+                    else:
+                        mapped[clean_flag] = real_val
+                except:
+                    mapped[clean_flag] = val
+            else:
+                mapped[clean_flag] = val
+
+        # 2. Lógica de Condicionais (REMOVIDO O -1)
+        if 'if' in config:
+            extra_config = config['if'](mapped)
+            if extra_config:
+                for ex_flag, ex_space in extra_config.items():
+                    csv_flag = ex_flag.lstrip("-") 
+                    
+                    if csv_flag in params:
+                        try:
+                            # Agora usa a mesma lógica de Base 0 do mapeamento direto
+                            raw_idx = int(float(params[csv_flag]))
+                            idx = raw_idx % len(ex_space)
+                            
+                            real_val = ex_space[idx]
+                            if isinstance(real_val, (bool, np.bool_)):
+                                mapped[ex_flag] = bool(real_val)
+                            else:
+                                mapped[ex_flag] = real_val
+                        except: 
+                            pass
+        return mapped
+
 
     def _get_active_algorithms(self, csv_row: pd.Series) -> list:
         
@@ -52,7 +117,6 @@ class PipelineTranslator:
                 print(f"Erro: coluna '{algo}' não pertence à fp, meka ou weka")
 
         # PRINT DE DEBUG
-        print(f"[DEBUG TRANSLATOR] Algoritmos Encontrados -> FP: {fp} | MEKA: {meka} | WEKA: {weka}")
         return fp, meka, weka
     
 
@@ -94,120 +158,9 @@ class PipelineTranslator:
             elif "weka.classifiers" in algo:
                 weka_params = params
                         
-        # PRINT DE DEBUG
-        print(f"[DEBUG TRANSLATOR] Params Extraídos -> FP: {fp_params}")
-        print(f"[DEBUG TRANSLATOR] Params Extraídos -> MEKA: {meka_params}")
-        print(f"[DEBUG TRANSLATOR] Params Extraídos -> WEKA: {weka_params}")
         return fp_params, meka_params, weka_params
 
 
-    def _build_java_string(self, algo: str, params: dict):
-        """
-        Constrói a string do terminal (java); retorna string para
-        Meka, e dicionário estruturado para Weka.
-        """
-        if not algo:
-            return ""
-
-        map_categorical = {
-            # WEKA
-            "weka.classifiers.lazy.KStar": {
-                "M": {0: "a", 1: "d", 2: "m", 3: "n"}
-            },
-            "weka.classifiers.rules.DecisionTable": {
-                "E": {0: "acc", 1: "rmse", 2: "mae", 3: "auc"},
-                "S": {0: "BestFirst", 1: "GreedyStepwise"}
-            },
-            "weka.classifiers.bayes.BayesNet": {
-                "Q": {
-                    0: "weka.classifiers.bayes.net.search.local.TAN",
-                    1: "weka.classifiers.bayes.net.search.local.K2 -- -P 1",
-                    2: "weka.classifiers.bayes.net.search.local.HillClimber -- -P 1",
-                    3: "weka.classifiers.bayes.net.search.local.LAGDHillClimber -- -P 1",
-                    4: "weka.classifiers.bayes.net.search.local.TabuSearch -- -P 1"
-                }
-            },
-            # MEKA (Wrapper Mulan)
-            "meka.classifiers.multilabel.MULAN.HOMER": {
-                "method": {0: "BalancedClustering", 1: "Clustering", 2: "Random"},
-                "mll": {0: "BinaryRelevance", 1: "ClassifierChain", 2: "LabelPowerset"}
-            },
-            # MEKA (Nativo)
-            "meka.classifiers.multilabel.BCC": {
-                "X": {0: "C", 1: "I", 2: "Ib", 3: "Ibf", 4: "H", 5: "Hbf", 6: "X", 7: "F", 8: "L", 9: "None"}
-            },
-            "meka.classifiers.multilabel.CT": {
-                "X": {0: "C", 1: "I", 2: "Ib", 3: "Ibf", 4: "H", 5: "Hbf", 6: "X", 7: "F", 8: "L", 9: "None"}
-                # Se 'payoff_function' for array de string, mapeie o "P" aqui também!
-            },
-            "meka.classifiers.multilabel.CDT": {
-                "X": {0: "C", 1: "I", 2: "Ib", 3: "Ibf", 4: "H", 5: "Hbf", 6: "X", 7: "F", 8: "L", 9: "None"}
-            }
-        }
-
-        # Tradução dos Índices
-        mapped_params = {}
-        for flag, val in params.items():
-            final_val = val
-            
-            # Se a flag deste algoritmo estiver no mapa, traduz de int para string
-            if algo in map_categorical and flag in map_categorical[algo]:
-                try:
-                    idx = int(float(val))
-                    final_val = map_categorical[algo][flag].get(idx, val)
-                    # PRINT DE DEBUG
-                    print(f"[DEBUG TRANSLATOR] Mapeou {algo}[{flag}]: {val} -> {final_val}")
-                except (ValueError, TypeError):
-                    pass # Se falhar, mantém o valor original por segurança
-                    
-            mapped_params[flag] = final_val
-
-        # Algoritmos Wrapper do MULAN
-        if ".MULAN." in algo:
-            parts = algo.split(".MULAN.")
-            base_mulan = f"{parts[0]}.MULAN"
-            mulan_algo = parts[1]
-            
-            dot_params = []
-            # Usamos os parâmetros JÁ TRADUZIDOS!
-            for flag, val in mapped_params.items():
-                if flag == "normalize":
-                    continue
-                dot_params.append(str(val))
-            
-            if dot_params:
-                mulan_algo = f"{mulan_algo}.{'.'.join(dot_params)}"
-                
-            return f"{base_mulan} -S {mulan_algo}"
-
-        # Construção Padrão MEKA / WEKA
-        command_parts = [algo]
-
-        for flag, val in mapped_params.items():
-            if val is True: 
-                command_parts.append(f"-{flag}")
-            elif val is False:
-                continue
-            else: 
-                command_parts.append(f"-{flag}")
-                command_parts.append(str(val))
-
-        final_string = " ".join(command_parts)
-
-        # Lógica Especial do WEKA (SMO Implícito)
-        if "weka.classifiers.functions.supportVector" in algo:
-            return {
-                "slc": "weka.classifiers.functions.SMO",
-                "kernel": final_string
-            }
-        elif "weka.classifiers" in algo:
-            return {
-                "slc": final_string,
-                "kernel": None
-            }
-
-        # Retorna string simples para algoritmos MEKA
-        return final_string
     
     
     def _build_fp_string(self, algo: str, params: dict) -> str:

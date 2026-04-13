@@ -9,7 +9,8 @@ import argparse
 import csv
 import os
 import uuid
-from src.process_arff import save_arff, read_arff
+import arff
+from src.process_arff import save_arff, read_arff, get_num_labels
 import src.path_config as cfg
 from src.java_executor import MekaExecutor
 from src.output_parser import parse_output
@@ -44,7 +45,7 @@ def initialize_output_csv():
         OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True) # Garante que a pasta existe
         
         header = [
-            "mlc", "slc", "kernel",               # O Pipeline
+            "mlc", "slc", "fp",                   # O Pipeline
             "execution_time",                     # Tempo de execução
             "real_f1", "real_size",               # Métricas Reais
             "predicted_F1",                       # F1 predito
@@ -68,6 +69,19 @@ def save_line(line: dict):
 def main(args):
     print("Iniciando Orquestrador de Experimentos...")
 
+        # 1. Escolha o primeiro arquivo de treino para servir de referência
+    ref_arff = ARFF_PATH / f"{args.dataset_name.lower()}-train-0.arff"
+
+    # 2. Descobre o número de labels (ex: 45 no medical, 20 no birds)
+    n_labels = get_num_labels(str(ref_arff))
+
+    # 3. Descobre o número de features (Total de atributos - n_labels)
+    with open(ref_arff, 'r') as f:
+        # Carregamos apenas o cabeçalho para ser rápido
+        data_header = arff.load(f)
+        total_attributes = len(data_header['attributes'])
+        n_features = total_attributes - n_labels
+
     # Prepara o arquivo de saída
     initialize_output_csv()
 
@@ -75,7 +89,7 @@ def main(args):
     executor = MekaExecutor(memory="8G", timeout_sec=3600)
 
     # Inicializa o tradutor CSV -> string
-    translator = PipelineTranslator()
+    translator = PipelineTranslator(n_features=n_features, n_labels=n_labels)
 
     # Carrega o CSV de entrada 
     df = pd.read_csv(OTHER_PATH)
@@ -85,155 +99,123 @@ def main(args):
     
     # Loop principal (itera pelas linhas do CSV)
     for i in range(top_n):
-        print(f"\nValidando pipeline [{i + 1}/{len(df)}]...")
+        print(f"\nValidando pipeline [{i + 1}/{top_n}]...")
 
-        # Pega a linha atual, o f1 predito e tamanho predito
+        # Pega a linha atual (removendo colunas de metadados se necessário)
         actual_line = df.iloc[i, 2:-2] 
-        predicted_f1 = df.iloc[i, -2]
+        predicted_f1 = df.iloc[i, -3]
         predicted_model_size = df.iloc[i, -1]
 
-        fp_cmd, meka_cmd, weka_cmd = translator.translate_row(actual_line) # traduz o df em linhas de comando
-        
-        # Insere as variáveis do tradutor no formato que o MekaExecutor exige
-        pipeline_info = {
-            "mlc": meka_cmd,
-            "slc": weka_cmd.get("slc", ""),
-            "kernel": weka_cmd.get("kernel", "")
-        }
+        # 1. TRADUÇÃO: Agora recebe variáveis discretas e parâmetros já "desindexados" (ex: 0.6 em vez de 10)
+        fp_cmd, meka_algo, meka_p, weka_algo, weka_p = translator.translate_row(actual_line)
 
-        print(f"[*] Pipeline Traduzido: MLC: {pipeline_info['mlc'].split()[0]} | SLC: {pipeline_info['slc'].split()[0]}")
+        # Criamos um dicionário apenas para facilitar o log e o salvamento no CSV
+        pipeline_repr = {
+            "mlc": f"{meka_algo} {meka_p}",
+            "slc": f"{weka_algo} {weka_p}",
+            "fp": fp_cmd
+        }
         
-        # Lista para guardar o F1, tamanho e tempo de cada um dos 3 folds
         folds_results = []
-        total_time = 0 # Para somar o tempo das 3 execuções
+        total_time = 0 
 
         # Loop secundário (itera sobre os 3 folds)
         for fold in range(3):
-            print(f"\n\nExecutando Fold {fold}...")
+            print(f"\nExecutando Fold {fold}...")
             
-            # Caminhos dos ARFFs 
             orig_train_path = ARFF_PATH / f"{args.dataset_name.lower()}-train-{fold}.arff"
             orig_test_path  = ARFF_PATH / f"{args.dataset_name.lower()}-test-{fold}.arff"
 
-            # Variáveis que o Java usa
             java_train_path = orig_train_path
             java_test_path = orig_test_path
             
-            # Feature Preprocessing
             try:
-                if fp_cmd and str(fp_cmd).strip() != "":
-                    print("Aplicando Feature Preprocessing...")
-                    print(f"Comando de FP: {fp_cmd}")
+                # 2. FEATURE PREPROCESSING (FP)
+                if fp_cmd and str(fp_cmd).strip() != "" and str(fp_cmd) != "None":
+                    print(f"    [+] Aplicando FP: {fp_cmd}")
                     
-                    # Lê os arffs 
-                    feat_types, dfX_train, dfy_train = read_arff(str(orig_train_path), NUM_LABELS)
-                    _, dfX_test, dfy_test = read_arff(str(orig_test_path), NUM_LABELS)
+                    num_labels = get_num_labels(orig_train_path)
+                    feat_types, dfX_train, dfy_train = read_arff(str(orig_train_path), num_labels)
+                    _, dfX_test, dfy_test = read_arff(str(orig_test_path), num_labels)
                     
-                    # Instancia o algoritmo com eval()
                     fp_algorithm = eval(fp_cmd)
-
-                    # Executa Fit e Transform
                     fp_algorithm.fit(dfX_train, dfy_train)
+                    
                     dfX_train_new = fp_algorithm.transform(dfX_train)
                     dfX_test_new = fp_algorithm.transform(dfX_test)
 
-                    # Define caminhos temporários
                     java_train_path = TEMP_DIR / f"temp_train_{uuid.uuid4().hex}.arff"
                     java_test_path = TEMP_DIR / f"temp_test_{uuid.uuid4().hex}.arff"
 
-                    # Salva os novos arquivos temporários no disco
-                    save_arff(dfX_train_new, dfy_train, feat_types, NUM_LABELS, args.dataset_name, str(java_train_path))
-                    save_arff(dfX_test_new, dfy_test, feat_types, NUM_LABELS, args.dataset_name, str(java_test_path))
+                    save_arff(dfX_train_new, dfy_train, feat_types, num_labels, args.dataset_name, str(java_train_path))
+                    save_arff(dfX_test_new, dfy_test, feat_types, num_labels, args.dataset_name, str(java_test_path))
 
-                
-                # Constrói o Comando 
+                # 3. MONTAGEM DO COMANDO: Usando a nova lógica que trata parâmetros reais e booleanos
                 cmd, temp_model_path = executor.build_command(
-                    translated_pipeline=pipeline_info,
+                    meka_algo=meka_algo,
+                    meka_params=meka_p,
+                    weka_algo=weka_algo,
+                    weka_params=weka_p,
                     train_path=str(java_train_path),
-                    test_path=str(java_test_path),
-                    num_labels=NUM_LABELS
+                    test_path=str(java_test_path)
                 )
                 
-                # Executa o Java
-                print("Executando o java...")
-                res = executor.execute(cmd, temp_model_path, pipeline_info)
+                # 4. EXECUÇÃO
+                print("    [>] Executando Java...")
+                res = executor.execute(cmd, temp_model_path, pipeline_repr)
                 total_time += res.get("time_sec", 0)
 
                 if res["success"]:
                     text_metrics = parse_output(res["output"])
                     f1 = text_metrics.get("f1_real")
                     size = res.get("model_size")
-                    print(f"    [+] Sucesso! F1: {f1} | Tempo: {res.get('time_sec')}s | Tamanho: {size} bytes")
+                    print(f"    [+] Sucesso! F1: {f1} | Tempo: {res.get('time_sec')}s")
 
+                    # Log de Debug
                     debug_filepath = DEBUG_PATH / f"pipe{i+1}_fold{fold}.txt"
-                    with open(debug_filepath, "a", encoding="utf-8") as f:
-                        f.write(f"\n{'='*80}\n")
-                        f.write(f"[Pipeline: {pipeline_info}\n")
-                        f.write(f"[COMANDO]\n{' '.join(cmd)}\n")
-                        f.write(f"[SAÍDA DO JAVA]\n{res['output']}\n")
-                        f.write(f"{'='*80}\n")
+                    with open(debug_filepath, "w", encoding="utf-8") as f:
+                        f.write(f"COMANDO: {' '.join(cmd)}\n\n")
+                        f.write(f"SAIDA:\n{res['output']}")
                     
-                    # Guarda as métricas dessa rodada específica
-                    folds_results.append({
-                        "f1": text_metrics.get("f1_real"),
-                        "size": res.get("model_size"),
-                    })
+                    folds_results.append({"f1": f1, "size": size})
                 else:
-                    # PRINT DE DEBUG
-                    msg = res.get("error", "Erro Desconhecido").splitlines()[0] if res.get("error") else "Sem output de erro."
-                    print(f"    [!] ERRO NO JAVA: {msg}")
+                    print(f"    [!] ERRO NO JAVA: {res.get('error', 'Erro desconhecido')}")
 
             except Exception as e:
                 print(f"    [!] ERRO CRÍTICO NO PYTHON (Fold {fold}): {str(e)}")
-                print("    [!] O algoritmo falhou matematicamente. Abortando este pipeline...")
-                # O 'break' interrompe os outros folds e joga o código para o cálculo final, 
-                # que vai registrar esse pipeline como "FALHA" no CSV automaticamente!
                 break
 
             finally:
+                # Limpeza de arquivos temporários
                 if java_train_path != orig_train_path and os.path.exists(java_train_path):
                     os.remove(java_train_path)
                 if java_test_path != orig_test_path and os.path.exists(java_test_path):
                     os.remove(java_test_path)
         
-        # Salva a mediana dos folds para comparação
+        # 5. CONSOLIDAÇÃO DOS RESULTADOS (Média entre os folds)
         csv_line = {
-            "mlc": pipeline_info["mlc"],
-            "slc": pipeline_info["slc"],
-            "kernel": pipeline_info["kernel"],
+            "mlc": meka_algo,
+            "slc": weka_algo,
+            "fp": fp_cmd,
             "execution_time": round(total_time, 2),
-            "real_f1": None,
-            "real_size": None,
+            "real_f1": 0.0,
+            "real_size": 1e9,
             "predicted_F1": predicted_f1,
             "predicted_model_size": predicted_model_size,
-            "status": "FALHA",
-            "error": ""
+            "status": "FALHA"
         }
 
-        # Filtra apenas os folds que não retornaram None no F1
         folds_validos = [r for r in folds_results if r["f1"] is not None]
 
         if len(folds_validos) > 0:
-            # Calcula a média aritmética do F1
-            f1_total = sum(r["f1"] for r in folds_validos)
-            csv_line["real_f1"] = f1_total / len(folds_validos)
-
-            # Calcula a média aritmética do Tamanho do Modelo (Size)
-            size_total = sum(r["size"] for r in folds_validos)
-            csv_line["real_size"] = size_total / len(folds_validos)
-            
+            csv_line["real_f1"] = sum(r["f1"] for r in folds_validos) / len(folds_validos)
+            csv_line["real_size"] = sum(r["size"] for r in folds_validos) / len(folds_validos)
             csv_line["status"] = "SUCESSO"
-        else:
-            csv_line["real_f1"] = 0.0
-            csv_line["real_size"] = 1e9 # Valor alto para indicar falha
-            csv_line["status"] = "FALHA"
-            csv_line["error"] = "Todos os 3 folds falharam ou não retornaram F1"
 
-        # Salva no disco
         save_line(csv_line)
-        print(f"-> Concluído! Status: {csv_line['status']} | F1 (Mediana): {csv_line['real_f1']}")
+        print(f"-> Finalizado! Status: {csv_line['status']} | F1 Médio: {csv_line['real_f1']:.4f}")
 
-    print("\nExperimentos finalizados!")
+    print("\nExperimentos finalizados com sucesso!")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Script para validar o desempenho de pipelines candidatos")
@@ -255,22 +237,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    dataset_labels = {
-    "birds": 19,
-    "medical": 45,
-    "enron": 53,
-    "scene": 6,
-    "yeast": 14
-    }
-
     # Configurações de Caminho
     CSV_PATH = BASE_DIR / "results" / "predicted_pipeline_ranking" / f"best_{args.dataset_name.lower()}_xgboost.csv"
     OTHER_PATH = BASE_DIR / "data" / "meta" / "meta_processed" / "test_medical.csv"
     OUTPUT_CSV = BASE_DIR / "results" / "validation" / f"validated_{args.dataset_name.lower()}_pipelines.csv"
     DEBUG_PATH = BASE_DIR / "debug"
+    DEBUG_PATH.mkdir(parents=True, exist_ok=True)
     ARFF_PATH = BASE_DIR / "data" / "raw" / f"{args.dataset_name.lower()}"
     TEMP_DIR = BASE_DIR / "temp"
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
-    NUM_LABELS = dataset_labels[args.dataset_name.lower()]
 
     main(args)

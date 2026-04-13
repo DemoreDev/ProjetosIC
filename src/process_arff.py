@@ -1,6 +1,24 @@
 import pandas as pd
 import numpy as np
 import arff 
+import re
+
+def get_num_labels(path_dataset: str) -> int:
+    """
+    Lê o cabeçalho do arquivo ARFF e extrai a quantidade de labels 
+    definida na tag @RELATION através do parâmetro -C.
+    """
+    with open(path_dataset, 'r', encoding='utf-8') as f:
+        for line in f:
+            line_lower = line.lower().strip()
+            if line_lower.startswith("@relation"):
+                # Busca o padrão '-C' seguido de um número (podendo ser negativo)
+                match = re.search(r"-C\s+(-?\d+)", line, re.IGNORECASE)
+                if match:
+                    # Retorna o valor absoluto, pois o sinal indica apenas a posição (início/fim)
+                    return abs(int(match.group(1)))
+                break # Para a busca se encontrar a @relation sem o parâmetro
+    return None
 
 def read_arff(path_dataset: str, n_labels: int):
     # Lê um arquivo ARFF e divide em DataFrames do Pandas para as features (X) e labels (y).

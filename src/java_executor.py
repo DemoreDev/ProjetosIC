@@ -3,6 +3,7 @@ import time
 import uuid 
 import os
 import json
+import numpy as np
 from pathlib import Path
 import src.path_config as cfg
 
@@ -28,70 +29,77 @@ class MekaExecutor:
         self.memory = f"-Xmx{memory}"
         self.timeout = timeout_sec
 
-    def build_command(self, translated_pipeline: dict, train_path: str, test_path: str, num_labels: int) -> tuple:
-        # Transforma o pipeline traduzido na lista exata que o subprocess do Python exige.
-        
-        mlc_string = translated_pipeline.get("mlc", "")
-        if not mlc_string:
+    def build_command(self, meka_algo, meka_params, weka_algo, weka_params, train_path, test_path) -> tuple:
+        """
+        Agora recebe algoritmos e dicionários de parâmetros diretamente.
+        """
+        if not meka_algo:
             raise ValueError("O algoritmo MLC (Meka) não pode ser vazio.")
 
-        # Base do Comando Java
-        cmd = [
-            #"/home/lddemore@posgrad.usricmc.icmc.usp.br/anaconda3/envs/minhaic/bin/java",
-            "java",
-            self.memory,          
-            "-cp", self.classpath 
-        ]
+        # 1. Base do Comando Java
+        cmd = ["java", self.memory, "-cp", self.classpath]
 
-        # Processa o MLC 
-        mlc_parts = mlc_string.split(" ")
-        main_class = mlc_parts[0]  # O nome da classe base Meka
-        rest_mlc = mlc_parts[1:]   # Os parâmetros Meka (se existirem)
+        # 2. Classe Principal e Parâmetros do Meka
+        # Lógica especial para o MULAN (que usa -S)
+        if ".MULAN." in meka_algo:
+            parts = meka_algo.split(".MULAN.")
+            cmd.append(f"{parts[0]}.MULAN")
+            
+            mulan_sub_algo = parts[1]
+            # No MULAN, parâmetros viram sufixos: Algoritmo.P1.P2
+            params_suffix = [str(v) for k, v in meka_params.items() if "normalize" not in k]
+            if params_suffix:
+                mulan_sub_algo = f"{mulan_sub_algo}.{'.'.join(params_suffix)}"
+            
+            cmd.extend(["-S", mulan_sub_algo])
+            
+            if meka_params.get("-normalize") or meka_params.get("normalize"):
+                cmd.append("-normalize")
+        else:
+            cmd.append(meka_algo)
+            # Adiciona parâmetros do Meka (ex: -P 0.6)
+            for flag, val in meka_params.items():
+                self._append_param(cmd, flag, val)
 
-        cmd.append(main_class) # Adiciona classe principal (ex: meka.classifiers.multilabel.MULAN)
-
+        # 3. Metadados e Caminhos (Sempre após o algoritmo principal)
         temp_model_path = TEMP_DIR / f"temp_model_{uuid.uuid4().hex}.model"
-        
-        # Adiciona as obrigações do DataSet logo após a classe principal
         cmd.extend([
             "-t", str(train_path),
             "-T", str(test_path),
-            "-C", str(num_labels),
-            "-d", str(temp_model_path)
-        ])
-        
-        # Adiciona o restante dos parâmetros do Meka (ex: '-S', 'ECC')
-        cmd.extend(rest_mlc)
-
-        cmd.extend([
+            "-d", str(temp_model_path),
             "-verbosity", "3"
         ])
 
-        # Adiciona o SLC (Weka Base)
-        slc_string = translated_pipeline.get("slc")
-        kernel_string = translated_pipeline.get("kernel")
-
-        if slc_string:
-            slc_parts = slc_string.split()
+        # 4. Processa o WEKA (SLC)
+        if weka_algo:
+            # Caso especial: se for um Kernel, o Meka exige envolver no SMO
+            if "supportVector" in weka_algo:
+                cmd.extend(["-W", "weka.classifiers.functions.SMO", "--", "-K", weka_algo])
+            else:
+                cmd.extend(["-W", weka_algo, "--"])
             
-            cmd.append("-W")
-            cmd.append(slc_parts[0]) # Adiciona apenas o nome da classe (Ex: weka...SMO)
-            
-            if len(slc_parts) > 1 or kernel_string:
-                cmd.append("--")
-                
-            # Coloca os parâmetros do SLC 
-            if len(slc_parts) > 1:
-                cmd.extend(slc_parts[1:])
+            # Adiciona os parâmetros do Weka/Kernel
+            for flag, val in weka_params.items():
+                self._append_param(cmd, flag, val)
 
-            # Coloca os parâmetros do Kernel 
-            if kernel_string:
-                cmd.append("-K")
-                cmd.extend(kernel_string.split()) 
-
-        # PRINT DE DEBUG
         print(f"\n[DEBUG EXECUTOR] Comando montado:\n{' '.join(cmd)}\n")
         return cmd, str(temp_model_path)
+
+    def _append_param(self, cmd_list, flag, val):
+        clean_flag = flag if flag.startswith("-") else f"-{flag}"
+        
+        if isinstance(val, (bool, np.bool_)):
+            if bool(val) == True:
+                cmd_list.append(clean_flag)
+            return
+
+        if val is not None and str(val).strip() not in ["", "None"]:
+            # LIMPEZA CRÍTICA: Remove aspas simples que podem ter vindo do dict original
+            # Isso evita o NullPointerException no payoff do MCC/PMCC
+            clean_val = str(val).replace("'", "").replace('"', "")
+            
+            cmd_list.append(clean_flag)
+            cmd_list.append(clean_val)
     
 
     def execute(self, command_list: list, temp_model_path: str, pipeline_info: dict = None) -> dict:
