@@ -72,15 +72,16 @@ def main(args):
         # 1. Escolha o primeiro arquivo de treino para servir de referência
     ref_arff = ARFF_PATH / f"{args.dataset_name.lower()}-train-0.arff"
 
-    # 2. Descobre o número de labels (ex: 45 no medical, 20 no birds)
+    # 2. Descobre o número de labels 
     n_labels = get_num_labels(str(ref_arff))
 
     # 3. Descobre o número de features (Total de atributos - n_labels)
-    with open(ref_arff, 'r') as f:
-        # Carregamos apenas o cabeçalho para ser rápido
-        data_header = arff.load(f)
-        total_attributes = len(data_header['attributes'])
-        n_features = total_attributes - n_labels
+    total_attributes = 0
+    with open(ref_arff, "r") as f:
+        for line in f:
+            if line.strip().lower().startswith("@attribute"):
+                total_attributes += 1
+    n_features = total_attributes - n_labels
 
     # Prepara o arquivo de saída
     initialize_output_csv()
@@ -208,8 +209,11 @@ def main(args):
         folds_validos = [r for r in folds_results if r["f1"] is not None]
 
         if len(folds_validos) > 0:
-            csv_line["real_f1"] = sum(r["f1"] for r in folds_validos) / len(folds_validos)
-            csv_line["real_size"] = sum(r["size"] for r in folds_validos) / len(folds_validos)
+            import statistics
+            f1s = [r["f1"] for r in folds_validos]
+            sizes = [r["size"] for r in folds_validos]
+            csv_line["real_f1"] = statistics.median(f1s)
+            csv_line["real_size"] = statistics.median(sizes)
             csv_line["status"] = "SUCESSO"
 
         save_line(csv_line)
@@ -239,12 +243,13 @@ if __name__ == "__main__":
 
     # Configurações de Caminho
     CSV_PATH = BASE_DIR / "results" / "predicted_pipeline_ranking" / f"best_{args.dataset_name.lower()}_xgboost.csv"
-    OTHER_PATH = BASE_DIR / "data" / "meta" / "meta_processed" / "test_medical.csv"
     OUTPUT_CSV = BASE_DIR / "results" / "validation" / f"validated_{args.dataset_name.lower()}_pipelines.csv"
     DEBUG_PATH = BASE_DIR / "debug"
     DEBUG_PATH.mkdir(parents=True, exist_ok=True)
     ARFF_PATH = BASE_DIR / "data" / "raw" / f"{args.dataset_name.lower()}"
     TEMP_DIR = BASE_DIR / "temp"
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
+
+    OTHER_PATH = BASE_DIR / "data" / "meta" / "meta_processed" / "test_medical.csv"
 
     main(args)
