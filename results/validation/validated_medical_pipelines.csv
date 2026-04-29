@@ -1,0 +1,31 @@
+mlc,slc,fp,execution_time,real_f1,real_size,predicted_F1,predicted_model_size,status,error
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,80.01,0.809,7067279,0.809,15.770986239660717,SUCESSO
+meka.classifiers.multilabel.PMCC,weka.classifiers.rules.JRip,"mlfs.br_skb.BR_SelectKBest(n_features=21, method=sklearn.feature_selection.chi2)",312.71,0.675,1287426,0.808,15.33397397790325,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,140.58,0.806,6612086,0.806,15.704409895731224,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,134.87,0.806,6612086,0.806,15.704409895731224,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.functions.SimpleLogistic,,10.0,0.805,6636152,0.805,15.708042986084552,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.functions.SimpleLogistic,,10.11,0.805,6636152,0.805,15.708042986084552,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,213.13,0.803,9477981,0.803,18.380719170830098,SUCESSO
+meka.classifiers.multilabel.PMCC,weka.classifiers.functions.SimpleLogistic,"mlfs.br_relieff.BR_ReliefF(n_features=83, neighbors=10)",866.04,0.716,1721394,0.799,15.25672672246353,SUCESSO
+meka.classifiers.multilabel.RAkEL,weka.classifiers.functions.SimpleLogistic,,128.6,0.798,10384435,0.798,16.155818704717895,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.functions.SimpleLogistic,,10.46,0.798,6636152,0.798,15.708042986084552,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.functions.SimpleLogistic,,10.5,0.798,6636152,0.798,15.708042986084552,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,160.05,0.798,6612086,0.798,15.704409895731224,SUCESSO
+meka.classifiers.multilabel.RAkEL,weka.classifiers.functions.SimpleLogistic,,258.62,0.798,9215462,0.798,16.036393391990984,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,145.95,0.798,9048020,0.798,18.57867013506216,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,257.03,0.798,8886420,0.798,18.514837140222564,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,160.16,0.798,8886420,0.798,18.514837140222564,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.functions.SimpleLogistic,,9.82,0.797,6636152,0.797,15.708042986084552,SUCESSO
+meka.classifiers.multilabel.PMCC,weka.classifiers.functions.SimpleLogistic,"mlfs.br_relieff.BR_ReliefF(n_features=83, neighbors=10)",874.69,0.721,20027635,0.797,17.71228137791402,SUCESSO
+meka.classifiers.multilabel.RAkEL,weka.classifiers.functions.SimpleLogistic,,170.27,0.797,9215462,0.797,16.036393391990984,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,97.39,0.797,6612086,0.797,15.704409895731224,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,96.45,0.797,6612086,0.797,15.704409895731224,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,143.44,0.797,9054884,0.797,18.57867013506216,SUCESSO
+meka.classifiers.multilabel.BR,weka.classifiers.functions.SimpleLogistic,sklearn.feature_selection.SelectFromModel(threshold=0),0,0.0,1000000000.0,0.796,13.835345537678284,FALHA
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,1504.53,0.796,6612086,0.796,15.704409895731224,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,1768.29,0.796,6612086,0.796,15.704409895731224,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,1546.33,0.796,8254874,0.796,18.11941920649918,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,1526.32,0.796,8254874,0.796,18.11941920649918,SUCESSO
+meka.classifiers.multilabel.MCC,weka.classifiers.trees.LMT,,239.69,0.796,9939680,0.796,18.8595071180304,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,103.34,0.795,8560148,0.795,18.37101871832216,SUCESSO
+meka.classifiers.multilabel.BRq,weka.classifiers.trees.LMT,,155.62,0.795,9243561,0.795,18.37820279576401,SUCESSO
