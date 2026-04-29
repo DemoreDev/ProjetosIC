@@ -1,0 +1,4 @@
+mlc,slc,fp,execution_time,real_f1,real_size,predicted_F1,predicted_model_size,status,error
+meka.classifiers.multilabel.MULAN.ECC,weka.classifiers.functions.supportVector.NormalizedPolyKernel,"mlfs.br_skb.BR_SelectKBest(n_features=89, method=sklearn.feature_selection.f_classif)",1.03,0.0,1000000000.0,-1.0,15.198946952819824,FALHA
+meka.classifiers.multilabel.MULAN.ECC,weka.classifiers.functions.supportVector.NormalizedPolyKernel,"mlfs.br_skb.BR_SelectKBest(n_features=20, method=sklearn.feature_selection.f_classif)",0.96,0.0,1000000000.0,-1.0,14.875791549682615,FALHA
+meka.classifiers.multilabel.MULAN.ECC,weka.classifiers.functions.supportVector.NormalizedPolyKernel,"mlfs.br_skb.BR_SelectKBest(n_features=45, method=sklearn.feature_selection.chi2)",0.95,0.0,1000000000.0,-1.0,15.025166511535645,FALHA

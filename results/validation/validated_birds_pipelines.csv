@@ -1,0 +1,26 @@
+mlc,slc,fp,execution_time,real_f1,real_size,predicted_F1,predicted_model_size,status,error
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,mlfs.ppt_rfe.PPT_RecursiveFeatureElimination(n_features=86),2.63,0.44,210415,-1.0,15.145330429077148,SUCESSO
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,"mlfs.br_relieff.BR_ReliefF(n_features=78, neighbors=27)",2.43,0.394,195243,-1.0,15.438854217529297,SUCESSO
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,mlfs.mdmr_adapted.PyIT_MDMR(),0,0.0,1000000000.0,-1.0,14.127904891967772,FALHA
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,"mlfs.ppt_rfe.PPT_RecursiveFeatureElimination(n_features=43, estimator=sklearn.ensemble.RandomForestClassifier())",2.23,0.404,127550,-1.0,14.97690773010254,SUCESSO
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,mlfs.ppt_rfe.PPT_RecursiveFeatureElimination(n_features=118),2.66,0.419,272429,-1.0,15.23507022857666,SUCESSO
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.lazy.KStar,"mlfs.br_relieff.BR_ReliefF(n_features=38, neighbors=28)",2.23,0.333,116983,-1.0,15.329941749572754,SUCESSO
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,"sklearn.feature_selection.RFE(estimator=sklearn.ensemble.RandomForestClassifier(), n_features_to_select=88)",0,0.0,1000000000.0,-1.0,15.14706325531006,FALHA
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,"mlfs.br_skb.BR_SelectKBest(n_features=126, method=sklearn.feature_selection.f_classif)",2.66,0.414,287901,-1.0,14.460969924926758,SUCESSO
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.lazy.KStar,"mlfs.br_relieff.BR_ReliefF(n_features=22, neighbors=9)",2.16,0.349,87209,-1.0,15.203885078430176,SUCESSO
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,"sklearn.feature_selection.RFE(estimator=sklearn.ensemble.RandomForestClassifier(), n_features_to_select=85)",0,0.0,1000000000.0,-1.0,13.345168113708496,FALHA
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,mlfs.igmf_adapted.PyIT_IGMF(n_features=106),0,0.0,1000000000.0,-1.0,14.398074,FALHA
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,mlfs.scls_adapted.PyIT_SCLS(n_features=83),0,0.0,1000000000.0,-1.0,14.49481201171875,FALHA
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,"mlfs.br_relieff.BR_ReliefF(n_features=98, neighbors=9)",2.5,0.399,234241,-1.0,14.874101638793944,SUCESSO
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,"mlfs.br_skb.BR_SelectKBest(n_features=114, method=sklearn.feature_selection.f_classif)",2.52,0.405,264941,-1.0,15.320658,SUCESSO
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.lazy.KStar,"mlfs.br_skb.BR_SelectKBest(n_features=34, method=sklearn.feature_selection.mutual_info_classif)",2.17,0.43,109589,-1.0,15.328573226928713,SUCESSO
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,mlfs.scls_adapted.PyIT_SCLS(n_features=56),0,0.0,1000000000.0,-1.0,15.351947784423828,FALHA
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,mlfs.igmf_adapted.PyIT_IGMF(n_features=44),0,0.0,1000000000.0,-1.0,14.674649238586426,FALHA
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,sklearn.feature_selection.SelectFromModel(threshold=6),0,0.0,1000000000.0,-1.0,15.338299751281738,FALHA
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.lazy.KStar,mlfs.pmu_adapted.PyIT_PMU(),0,0.0,1000000000.0,-1.0,15.010913848876951,FALHA
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,mlfs.lrfs_adapted.PyIT_LRFS(n_features=79),0,0.0,1000000000.0,-1.0,14.436397,FALHA
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,"mlfs.ppt_rfe.PPT_RecursiveFeatureElimination(n_features=50, estimator=sklearn.ensemble.RandomForestClassifier())",2.33,0.364,141783,-1.0,14.960860252380373,SUCESSO
+meka.classifiers.multilabel.MULAN.MLkNN,weka.classifiers.trees.RandomForest,mlfs.mdmr_adapted.PyIT_MDMR(),0,0.0,1000000000.0,-1.0,14.198441,FALHA
+meka.classifiers.multilabel.RAkEL,weka.classifiers.trees.RandomForest,mlfs.lrfs_adapted.PyIT_LRFS(n_features=78),0,0.0,1000000000.0,-1.0,18.189361572265625,FALHA
+meka.classifiers.multilabel.FW,weka.classifiers.trees.RandomForest,mlfs.lrfs_adapted.PyIT_LRFS(n_features=63),0,0.0,1000000000.0,-1.0,18.447662353515625,FALHA
+meka.classifiers.multilabel.RAkEL,weka.classifiers.trees.RandomForest,sklearn.feature_selection.RFE(n_features_to_select=74),0,0.0,1000000000.0,-1.0,17.990623,FALHA
