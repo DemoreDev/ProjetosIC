@@ -93,7 +93,8 @@ def main(args):
     translator = PipelineTranslator(n_features=n_features, n_labels=n_labels)
 
     # Carrega o CSV de entrada 
-    df = pd.read_csv(OTHER_PATH)
+    #df = pd.read_csv(OTHER_PATH)
+    df = pd.read_csv(CSV_PATH)
 
     # Garante que o valor passado não seja maior que o df
     top_n = min(args.top_n, len(df)) 
@@ -250,6 +251,6 @@ if __name__ == "__main__":
     TEMP_DIR = BASE_DIR / "temp"
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
-    OTHER_PATH = BASE_DIR / "data" / "meta" / "meta_processed" / "test_medical.csv"
+    #OTHER_PATH = BASE_DIR / "data" / "meta" / "meta_processed" / "test_medical.csv"
 
     main(args)
